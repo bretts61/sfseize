@@ -246,11 +246,8 @@ object SpaceFillingCurve {
     i
   }
 
-  def binDelta(x: OrdinalNumber, maxBits: OrdinalNumber, bits: OrdinalNumber): OrdinalNumber = {
-    val mask = (1L << bits) - 1L
-    mask - (x & mask)
-  }
-
+  // identifies the full bit-levels (for one dimension) covering
+  // the span from the coordinate's minimum to its maximum
   def bitCoverages(coords: OrdinalPair, maxBits: OrdinalNumber): Seq[OrdinalPair] = {
     if (coords.min > coords.max) return Seq[OrdinalPair]()
     if (coords.max == coords.min) return Seq(OrdinalPair(coords.min, 1))
@@ -258,14 +255,15 @@ object SpaceFillingCurve {
       bitCoverages(OrdinalPair(coords.min + 1L, coords.max), maxBits)
 
     val span = coords.max - coords.min
+    val deltas = ~coords.min
 
     // find the largest group
     var i = maxBits
-    var b = binDelta(coords.min, maxBits, i)
+    var b = deltas & ((1L << i) - 1L)
     var unfound = b >= span
     while (i >= 1 && unfound) {
       i = i - 1
-      b = binDelta(coords.min, maxBits, i)
+      b = deltas & ((1L << i) - 1L)
       unfound = b >= span
     }
 
