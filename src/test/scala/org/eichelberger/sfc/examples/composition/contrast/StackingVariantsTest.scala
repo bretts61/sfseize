@@ -49,11 +49,11 @@ class StackingVariantsTest extends Specification with LazyLogging {
     case Medium =>  100
     case Large  => 1000
   }
-  val pointQueryPairs: Seq[(XYZTPoint, Cell)] = {
+  val pointQueryPairs: Seq[(XYZTPoint, Cell, String)] = {
     val prng = new Random(5771L)
     val MinDate = new DateTime(2010, 1, 1, 0, 0, 0, DateTimeZone.forID("UTC"))
     val MaxDate = new DateTime(2014, 12, 31, 23, 59, 59, DateTimeZone.forID("UTC"))
-    (1 to n).map(i => {
+    (1 to n).flatMap(i => {
       // construct the point
       val x = Math.min(180.0, Math.max(-180.0, -180.0 + 360.0 * prng.nextDouble()))
       val y = Math.min(90.0, Math.max(-90.0, -90.0 + 180.0 * prng.nextDouble()))
@@ -67,18 +67,35 @@ class StackingVariantsTest extends Specification with LazyLogging {
       val (y0: Double, y1: Double) = discretize(y, dimLat)
       val (z0: Double, z1: Double) = discretize(z, dimAlt)
       val (t0: DateTime, t1: DateTime) = discretize(t, dimDate)
-      val cell = Cell(Seq(
-        DefaultDimensions.createDimension("x", x0, x1, 0L),
-        DefaultDimensions.createDimension("y", y0, y1, 0L),
-        DefaultDimensions.createDimension("z", z0, z1, 0L),
-        DefaultDimensions.createDateTime(t0, t1, 0L)
-      ))
-      // return this pair
-      (point, cell)
+      val cellX = DefaultDimensions.createDimension("x", x0, x1, 0L)
+      val cellY = DefaultDimensions.createDimension("y", y0, y1, 0L)
+      val cellZ =  DefaultDimensions.createDimension("z", z0, z1, 0L)
+      val cellT = DefaultDimensions.createDateTime(t0, t1, 0L)
+      // return the combinations with (and without) queries per dimension
+      val entries: Seq[(XYZTPoint, Cell, String)] = combinationsIterator(OrdinalVector(2, 2, 2, 2)).map(combination => {
+        (
+          point,
+          Cell(Seq(
+            if (combination(0) == 0L) dimLong else cellX,
+            if (combination(1) == 0L) dimLat  else cellY,
+            if (combination(2) == 0L) dimAlt  else cellZ,
+            if (combination(3) == 0L) dimDate else cellT
+          )),
+          (if (combination(0) == 0L) "-" else "X") +
+            (if (combination(1) == 0L) "-" else "Y") +
+            (if (combination(2) == 0L) "-" else "Z") +
+            (if (combination(3) == 0L) "-" else "T")
+        )
+      }).toSeq
+      // (skip the first entry for all but the first iteration, because it's "no constraints in any dimension")
+      if (i == 1) entries else entries.tail
     })
   }
   val points: Seq[XYZTPoint] = pointQueryPairs.map(_._1)
   val cells: Seq[Cell] = pointQueryPairs.map(_._2)
+  val labels: Seq[String] = pointQueryPairs.map(_._3)
+
+  val uniqueLabels = labels.toSet.toSeq
 
   def verifyRoundTrip(curve: ComposedCurve, pw: PrintWriter, print: Boolean = false): Boolean = {
     val (_, msElapsed) = time(() => {
@@ -102,53 +119,57 @@ class StackingVariantsTest extends Specification with LazyLogging {
   }
 
   def verifyQueryRanges(curve: ComposedCurve, pw: PrintWriter, print: Boolean = false): Boolean = {
-    var totalCells = 0L
-    var totalRanges = 0L
-    var totalSpan = 0L
-
-    val (_, msElapsed) = time(() => {
-      var i = 0
-      while (i < n) {
+    // conduct all queries against this curve
+    val results: List[(String, Seq[OrdinalPair], Long)] = pointQueryPairs.map{
+      case (point, rawCell, label) =>
         val cell =
-          if (curve.numLeafNodes == 4) cells(i)
-          else Cell(cells(i).dimensions.take(2) ++ cells(i).dimensions.takeRight(1))
-        val ranges = curve.getRangesCoveringCell(cell).toList
-        totalRanges = totalRanges + ranges.size
-        totalCells = totalCells + ranges.map(_.size).sum
-        val extent: (Long, Long) = ranges.foldLeft((0L, 0L))((acc, range) => acc match {
-          case (minAcc, maxAcc) =>
-            (Math.min(minAcc, range.min), Math.max(maxAcc, range.max))
-        })
-        totalSpan = totalSpan + (extent._2 - extent._1 + 1)
-        if (print) println(s"[${curve.name} verify query ranges] ${points(i)} -> $cell -> ${ranges.size} ranges")
-        i = i + 1
-      }
-    })
+          if (curve.numLeafNodes == 4) rawCell
+          else Cell(rawCell.dimensions.take(2) ++ rawCell.dimensions.takeRight(1))
+        val (ranges, msElapsed) = time(() => curve.getRangesCoveringCell(cell).toList)
+        (label, ranges, msElapsed)
+    }.toList
 
-    val seconds = msElapsed.toDouble / 1000.0
-    val avgRanges = totalRanges.toDouble / n.toDouble
-    val avgCells = totalCells.toDouble / n.toDouble
-    val avgCellsPerSecond = avgCells / seconds
-    val avgCellsPerRange = avgCells / avgRanges
-    val avgRangeDensity = totalCells / totalSpan
-    val avgScore = avgCellsPerRange * avgCellsPerSecond
+    // aggregate by label
+    val aggregates = results.groupBy(_._1)
+    aggregates.foreach {
+      case (aggLabel, group) =>
+        var totalCells = 0L
+        var totalRanges = 0L
+        var totalMs = 0L
 
-    println(s"${curve.name},queries,${curve.M},$n,${curve.numLeafNodes},$avgRanges,$avgCells,$seconds")
-    pw.println(Seq(
-      curve.name,
-      "ranges",
-      curve.M,
-      n,
-      curve.numLeafNodes,
-      curve.plys,
-      avgRanges,
-      avgCells,
-      avgCellsPerSecond,
-      avgCellsPerRange,
-      avgRangeDensity,
-      avgScore,
-      seconds
-    ).mkString("\t"))
+        group.foreach {
+          case (_, ranges, ms) =>
+            totalRanges = totalRanges + ranges.size
+            totalCells = totalCells + ranges.map(_.size).sum
+            totalMs = totalMs + ms
+        }
+
+        val m = group.size.toDouble
+        val avgRanges = totalRanges.toDouble / m
+        val avgCells = totalCells.toDouble / m
+        val seconds = totalMs.toDouble / 1000.0
+        val avgCellsPerSecond = totalCells / seconds
+        val avgCellsPerRange = totalRanges / seconds
+        val avgScore = avgCellsPerSecond * avgCellsPerRange
+
+        val data = Seq(
+          curve.name,
+          "ranges",
+          aggLabel,
+          curve.M,
+          n,
+          curve.numLeafNodes,
+          curve.plys,
+          avgRanges,
+          avgCells,
+          avgCellsPerSecond,
+          avgCellsPerRange,
+          avgScore,
+          seconds
+        )
+        println(data.mkString(","))
+        pw.println(data.mkString("\t"))
+    }
 
     true
   }
