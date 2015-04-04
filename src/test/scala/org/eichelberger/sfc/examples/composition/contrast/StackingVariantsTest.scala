@@ -127,7 +127,7 @@ class StackingVariantsTest extends Specification with LazyLogging {
           else Cell(rawCell.dimensions.take(2) ++ rawCell.dimensions.takeRight(1))
 
         //@TODO debug!
-        println(s"RANGES TEST:  ${curve.name}, $label, $cell")
+        println(s"RANGES TEST:  ${curve.name}, $label, ${curve.M}, $cell")
 
         val (ranges, msElapsed) = time(() => curve.getRangesCoveringCell(cell).toList)
         (label, ranges, msElapsed)
@@ -286,19 +286,19 @@ class StackingVariantsTest extends Specification with LazyLogging {
 
       for (totalPrecision <- bitsLow to bitsHigh) {
         // 4D, horizontal
-        FactoryXYZT(totalPrecision, 1).getCurves.map(curve => perCurveTestSuite(curve, pw))
+        //FactoryXYZT(totalPrecision, 1).getCurves.map(curve => perCurveTestSuite(curve, pw))
 
         // 4D, mixed
         FactoryXYZT(totalPrecision, 2).getCurves.map(curve => perCurveTestSuite(curve, pw))
 
         // 4D, vertical
-        FactoryXYZT(totalPrecision, 3).getCurves.map(curve => perCurveTestSuite(curve, pw))
+        //FactoryXYZT(totalPrecision, 3).getCurves.map(curve => perCurveTestSuite(curve, pw))
 
         // 3D, horizontal
-        FactoryXYT(totalPrecision, 1).getCurves.map(curve => perCurveTestSuite(curve, pw))
+        //FactoryXYT(totalPrecision, 1).getCurves.map(curve => perCurveTestSuite(curve, pw))
 
         // 3D, mixed
-        FactoryXYT(totalPrecision, 2).getCurves.map(curve => perCurveTestSuite(curve, pw))
+        //FactoryXYT(totalPrecision, 2).getCurves.map(curve => perCurveTestSuite(curve, pw))
       }
 
       pw.close()
@@ -306,12 +306,12 @@ class StackingVariantsTest extends Specification with LazyLogging {
       1 must equalTo(1)
     }
 
-    "dump query ranges to CSV" >> {
-      for (totalPrecision <- 21 to 35 by 2) {
-        FactoryXY(totalPrecision).getCurves.map(curve => writeCharlottesvilleRanges(curve, curve.M))
-      }
-
-      1 must equalTo(1)
-    }
+//    "dump query ranges to CSV" >> {
+//      for (totalPrecision <- 21 to 35 by 2) {
+//        FactoryXY(totalPrecision).getCurves.map(curve => writeCharlottesvilleRanges(curve, curve.M))
+//      }
+//
+//      1 must equalTo(1)
+//    }
   }
 }
