@@ -3,7 +3,7 @@ package org.eichelberger.sfc.examples.composition.contrast
 import java.io.{FileWriter, File, BufferedWriter, PrintWriter}
 
 import com.typesafe.scalalogging.slf4j.LazyLogging
-import org.eichelberger.sfc.{GenericTesting, DefaultDimensions, ComposedCurve}
+import org.eichelberger.sfc.{Dimension, GenericTesting, DefaultDimensions, ComposedCurve}
 import org.eichelberger.sfc.SpaceFillingCurve._
 import org.eichelberger.sfc.examples.composition.contrast._
 import org.joda.time.{Months, DateTime, DateTimeZone}
@@ -31,6 +31,18 @@ class StackingVariantsTest extends Specification with LazyLogging {
 
   case class MinMax[T](min: T, max: T)
 
+  // ensure that all of this discretizing-dimensions share the SAME precision
+  val dimLong = DefaultDimensions.createLongitude(10L)
+  val dimLat = DefaultDimensions.createLatitude(10L)
+  val dimDate = DefaultDimensions.createDateTime(10L)
+  val dimAlt = DefaultDimensions.createDimension("z", 0.0, 50000.0, 10L)
+
+  def discretize[T](value: T, dim: Dimension[T]): (T, T) = {
+    val idx = dim.index(value)
+    val cell = dim.inverseIndex(idx)
+    (cell.min, cell.max)
+  }
+
   // standard test suite of points and queries
   val n = testLevel match {
     case Small  =>   10
@@ -50,15 +62,16 @@ class StackingVariantsTest extends Specification with LazyLogging {
       val t = new DateTime(ms, DateTimeZone.forID("UTC"))
       val point = XYZTPoint(x, y, z, t)
       // construct a query that contains this point
-      val x0 = Math.min(179.0, Math.floor(x))
-      val y0 = Math.min(89.0, Math.floor(y))
-      val z0 = Math.min(49000.0, 1000.0 * Math.floor(z / 1000.0))
-      val t0 = new DateTime(t.getYear, t.getMonthOfYear, 1, 0, 0, 0, DateTimeZone.forID("UTC"))
+      // (discretized to equivalent precision)
+      val (x0: Double, x1: Double) = discretize(x, dimLong)
+      val (y0: Double, y1: Double) = discretize(y, dimLat)
+      val (z0: Double, z1: Double) = discretize(z, dimAlt)
+      val (t0: DateTime, t1: DateTime) = discretize(t, dimDate)
       val cell = Cell(Seq(
-        DefaultDimensions.createDimension("x", x0, x0 + 1.0, 1L),
-        DefaultDimensions.createDimension("y", y0, y0 + 1.0, 1L),
-        DefaultDimensions.createDimension("z", z0, z0 + 1000.0, 1L),
-        DefaultDimensions.createDateTime(t0, t0.plus(Months.months(1)), 1L)
+        DefaultDimensions.createDimension("x", x0, x1, 0L),
+        DefaultDimensions.createDimension("y", y0, y1, 0L),
+        DefaultDimensions.createDimension("z", z0, z1, 0L),
+        DefaultDimensions.createDateTime(t0, t1, 0L)
       ))
       // return this pair
       (point, cell)
