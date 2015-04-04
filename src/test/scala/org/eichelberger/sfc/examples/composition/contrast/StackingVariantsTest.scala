@@ -45,7 +45,7 @@ class StackingVariantsTest extends Specification with LazyLogging {
 
   // standard test suite of points and queries
   val n = testLevel match {
-    case Small  =>   10
+    case Small  =>   1
     case Medium =>  100
     case Large  => 1000
   }
@@ -125,6 +125,10 @@ class StackingVariantsTest extends Specification with LazyLogging {
         val cell =
           if (curve.numLeafNodes == 4) rawCell
           else Cell(rawCell.dimensions.take(2) ++ rawCell.dimensions.takeRight(1))
+
+        //@TODO debug!
+        println(s"RANGES TEST:  ${curve.name}, $label, $cell")
+
         val (ranges, msElapsed) = time(() => curve.getRangesCoveringCell(cell).toList)
         (label, ranges, msElapsed)
     }.toList
@@ -261,6 +265,7 @@ class StackingVariantsTest extends Specification with LazyLogging {
       pw.println(Seq(
         "curve",
         "test.type",
+        "label",
         "precision",
         "replications",
         "dimensions",
@@ -269,7 +274,6 @@ class StackingVariantsTest extends Specification with LazyLogging {
         "avg.cells",
         "cells.per.second",
         "cells.per.range",
-        "range.density",
         "score",
         "seconds"
       ).mkString("\t"))
