@@ -147,8 +147,8 @@ class StackingVariantsTest extends Specification with LazyLogging {
     pw.println("order\tidx_min\tidx_max\tnum_cells\twkt")
 
     val queryCell: Cell = Cell(Seq(
-      DefaultDimensions.createDimension("x", bboxCville._1, bboxCville._3, 1L),
-      DefaultDimensions.createDimension("y", bboxCville._2, bboxCville._4, 1L)
+      DefaultDimensions.createDimension("x", bboxCville._1, bboxCville._3, 0L),
+      DefaultDimensions.createDimension("y", bboxCville._2, bboxCville._4, 0L)
     ))
     val sparse = collection.mutable.HashMap[OrdinalVector, OrdinalNumber]()
     var maxIdx = 0L
@@ -217,10 +217,9 @@ class StackingVariantsTest extends Specification with LazyLogging {
     true
   }
 
-  def perCurveTestSuite(curve: ComposedCurve, pw: PrintWriter, print: Boolean = false): Boolean = {
+  def perCurveTestSuite(curve: ComposedCurve, pw: PrintWriter, print: Boolean = false): Boolean =
     verifyRoundTrip(curve, pw, print) &&
       verifyQueryRanges(curve, pw, print)
-  }
 
   "the various compositions" should {
     "print scaling results" >> {
