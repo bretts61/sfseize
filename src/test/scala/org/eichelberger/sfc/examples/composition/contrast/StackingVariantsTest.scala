@@ -72,7 +72,7 @@ class StackingVariantsTest extends Specification with LazyLogging {
       val cellZ =  DefaultDimensions.createDimension("z", z0, z1, 0L)
       val cellT = DefaultDimensions.createDateTime(t0, t1, 0L)
       // return the combinations with (and without) queries per dimension
-      val entries: Seq[(XYZTPoint, Cell, String)] = combinationsIterator(OrdinalVector(2, 2, 2, 2)).map(combination => {
+      val allEntries: Seq[(XYZTPoint, Cell, String)] = combinationsIterator(OrdinalVector(2, 2, 2, 2)).map(combination => {
         (
           point,
           Cell(Seq(
@@ -88,7 +88,16 @@ class StackingVariantsTest extends Specification with LazyLogging {
         )
       }).toSeq
       // (skip the first entry for all but the first iteration, because it's "no constraints in any dimension")
-      if (i == 1) entries else entries.tail
+      if (i == 1) allEntries else allEntries.tail
+      // leave one out
+      Seq(
+        (point, Cell(Seq(cellX, cellY, cellZ, cellT)), "XYZT"),
+        (point, Cell(Seq(cellX, cellY, cellZ, dimDate)), "XYZ-"),
+        (point, Cell(Seq(cellX, cellY, dimAlt, cellT)), "XY-T"),
+        (point, Cell(Seq(cellX, dimLat, cellZ, cellT)), "X-ZT"),
+        (point, Cell(Seq(dimLong, cellY, cellZ, cellT)), "-YZT")
+      )
+      Seq((point, Cell(Seq(cellX, cellY, cellZ, cellT)), "XYZT"))
     })
   }
   val points: Seq[XYZTPoint] = pointQueryPairs.map(_._1)
@@ -127,7 +136,7 @@ class StackingVariantsTest extends Specification with LazyLogging {
           else Cell(rawCell.dimensions.take(2) ++ rawCell.dimensions.takeRight(1))
 
         //@TODO debug!
-        println(s"RANGES TEST:  ${curve.name}, $label, ${curve.M}, $cell")
+        //println(s"RANGES TEST:  ${curve.name}, $label, ${curve.M}, $cell")
 
         val (ranges, msElapsed) = time(() => curve.getRangesCoveringCell(cell).toList)
         (label, ranges, msElapsed)
@@ -286,19 +295,19 @@ class StackingVariantsTest extends Specification with LazyLogging {
 
       for (totalPrecision <- bitsLow to bitsHigh) {
         // 4D, horizontal
-        //FactoryXYZT(totalPrecision, 1).getCurves.map(curve => perCurveTestSuite(curve, pw))
+        FactoryXYZT(totalPrecision, 1).getCurves.map(curve => perCurveTestSuite(curve, pw))
 
         // 4D, mixed
         FactoryXYZT(totalPrecision, 2).getCurves.map(curve => perCurveTestSuite(curve, pw))
 
         // 4D, vertical
-        //FactoryXYZT(totalPrecision, 3).getCurves.map(curve => perCurveTestSuite(curve, pw))
+        FactoryXYZT(totalPrecision, 3).getCurves.map(curve => perCurveTestSuite(curve, pw))
 
         // 3D, horizontal
-        //FactoryXYT(totalPrecision, 1).getCurves.map(curve => perCurveTestSuite(curve, pw))
+        FactoryXYT(totalPrecision, 1).getCurves.map(curve => perCurveTestSuite(curve, pw))
 
         // 3D, mixed
-        //FactoryXYT(totalPrecision, 2).getCurves.map(curve => perCurveTestSuite(curve, pw))
+        FactoryXYT(totalPrecision, 2).getCurves.map(curve => perCurveTestSuite(curve, pw))
       }
 
       pw.close()
@@ -306,12 +315,13 @@ class StackingVariantsTest extends Specification with LazyLogging {
       1 must equalTo(1)
     }
 
-//    "dump query ranges to CSV" >> {
-//      for (totalPrecision <- 21 to 35 by 2) {
-//        FactoryXY(totalPrecision).getCurves.map(curve => writeCharlottesvilleRanges(curve, curve.M))
-//      }
-//
-//      1 must equalTo(1)
-//    }
+
+    "dump query ranges to CSV" >> {
+      for (totalPrecision <- 21 to 35 by 2) {
+        FactoryXY(totalPrecision).getCurves.map(curve => writeCharlottesvilleRanges(curve, curve.M))
+      }
+
+      1 must equalTo(1)
+    }
   }
 }
