@@ -25,7 +25,7 @@ class StackingVariantsTest extends Specification with LazyLogging {
     val Debug, Small, Medium, Large = Value
   }
   import TestLevels._
-  val testLevel = Small
+  val testLevel = Medium
 
   case class XYZTPoint(x: Double, y: Double, z: Double, t: DateTime)
 
@@ -205,6 +205,7 @@ class StackingVariantsTest extends Specification with LazyLogging {
         val avgAdjScore = avgCellsPerSecond * Math.log(1.0 + avgCellsPerRange)
 
         val data = Seq(
+          DateTime.now().toString,
           curve.name,
           "ranges",
           aggLabel,
@@ -314,6 +315,7 @@ class StackingVariantsTest extends Specification with LazyLogging {
     "print scaling results" >> {
       val pw = new PrintWriter(new BufferedWriter(new FileWriter(s"/tmp/composed-curves.tsv")))
       pw.println(Seq(
+        "when",
         "curve",
         "test.type",
         "label",
@@ -334,9 +336,9 @@ class StackingVariantsTest extends Specification with LazyLogging {
 
       val (bitsLow, bitsHigh, bitsIncrement) = testLevel match {
         case Debug  => (40, 40, 1)
-        case Small  => (20, 30, 5)
-        case Medium => (25, 40, 5)
-        case Large  => (20, 40, 2)
+        case Small  => (20, 30, 10)
+        case Medium => (20, 40, 10)
+        case Large  => (20, 40, 5)
       }
 
       for (totalPrecision <- bitsLow to bitsHigh by bitsIncrement) {
@@ -359,6 +361,7 @@ class StackingVariantsTest extends Specification with LazyLogging {
         FactoryXYT(totalPrecision, 2).getCurves.map(curve => perCurveTestSuite(curve, pw))
       }
 
+      pw.flush()
       pw.close()
 
       1 must equalTo(1)
